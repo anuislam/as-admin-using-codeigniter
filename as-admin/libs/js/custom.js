@@ -59,6 +59,24 @@ jQuery(document).ready(function($){
 
 
 
+$( "select#bulk_action_select" ).change(function() {
+	var select_val = $(this).val();
+	if(select_val == ''){
+		select_val = 'default';
+	}
+	$('input[name="bulk_action"]').attr('value', select_val);
+});
+
+$( "button#bulk_action_button" ).on('click', function() {
+	var action_val = $('input[name="bulk_action"]').val();
+	$('form#main_form_for_table_action').trigger('submit');
+});
+
+
+
+
+
+
 	if($('.messagesList').width()) {
 		
 		if(jQuery.browser.version.substring(0, 2) == "8.") {
@@ -328,8 +346,6 @@ function template_functions(){
 		noty(options);
 	});
 
-	/* ---------- Uniform ---------- */
-	$("input:checkbox, input:radio, input:file").not('[data-no-uniform="true"],#uniform-is-ajax').uniform();
 
 	/* ---------- Choosen ---------- */
 	$('[data-rel="chosen"],[rel="chosen"]').chosen();
@@ -2287,6 +2303,30 @@ function widthFunctions(e) {
 			
 		});
 		
+	}
+
+}
+
+function chack_all_ckacl_box(name, th){
+	if($(th).is(':checked')){
+
+
+		$('.'+name).each(function(){
+
+			$(this).attr('checked', 'checked');
+			
+		});
+
+
+	}else{
+
+
+		$('.'+name).each(function(){
+
+			$(this).removeAttr('checked', 'checked');
+			
+		});
+
 	}
 
 }

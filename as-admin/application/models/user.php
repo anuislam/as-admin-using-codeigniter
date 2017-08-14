@@ -107,6 +107,19 @@ class User extends CI_Model {
 		return false;
 	}
 
+
+	public function delete_user($user_id)
+	{
+		$this->db->where('ID', $user_id);
+		$this->db->delete('cod_user');
+		$this->delete_user_meta($user_id);
+	}
+
+	public function delete_user_meta($user_id){
+		$this->db->where('user_ID', $user_id);
+		$this->db->delete('cod_usemeta');
+	}
+
 	public function add_user_meta($user_id, $key, $value)
 	{
 		if (is_numeric($value) === true) {
@@ -132,6 +145,7 @@ class User extends CI_Model {
 
 	public function total_uset_count()
 	{
+
 		$this->db->select('*'); 
 		$query = $this->db->get('cod_user'); 
 		return $query->num_rows();

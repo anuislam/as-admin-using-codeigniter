@@ -202,3 +202,25 @@ function chack_database_table_row($db_name, $ck_row)
 	}
 	return false;
 }
+
+
+function set_error_message($name, $msg){
+	$obj =& get_instance();	
+	$obj->load->library('session');
+	$obj->session->set_userdata($name, $msg);
+	return true;
+}
+function get_error_message($name){
+	$obj =& get_instance();	
+	$obj->load->library('session');
+	$error_data = $obj->session->userdata($name);
+	return $error_data;
+}
+
+function delete_error_msg($name){
+	$obj =& get_instance();	
+	$obj->load->library('session');
+	$obj->session->unset_userdata($name);
+	return true;
+}
+

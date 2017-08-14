@@ -16,6 +16,7 @@ class Admin_table {
 		$this->obj->load->helper('html');
 		$this->obj->load->library('pagination');
 		$this->obj->load->library('form_validation');
+		$this->obj->load->library('session');
 	}
 
 	public function page_title(){
@@ -31,10 +32,7 @@ class Admin_table {
 				'button_title' => 'apply',
 				'options' 		=> array(
 						'default'		=> 'bulk action',
-						'delete'		=> 'Delete',
-						'send_spam'		=> 'Send Spam',
-						'send_trush'	=> 'Send Trush',
-						'benned'		=> 'Benned User'
+						'delete'		=> 'Delete'
 					)
 			);
 	}
@@ -55,13 +53,15 @@ class Admin_table {
 				$get_data_count = count($get_data); 
 				foreach ($get_data as $key => $value) {
 					if ($key != 'page') {
-						$data .= $key.'='.$value;
-						if ($get_data_count != $a1) {
-							if ($a1 < $get_data_count) {
-								$data .= '&';
+						if (is_array($value) === false) {
+							$data .= $key.'='.$value;
+							if ($get_data_count != $a1) {
+								if ($a1 < $get_data_count) {
+									$data .= '&';
+								}
 							}
+							$a1++;
 						}
-						$a1++;
 					}
 				}
 				return $data;
@@ -196,7 +196,15 @@ echo $this->obj->pagination->create_links();
 		?>
 
 				<tr>
-					<td width="20"><input type="checkbox" id="inlineCheckbox1" value=""></td>
+					<td width="20">
+			<?php
+				echo form_input(array(
+					'name' 			=> 'action_select[]',
+					'type' 			=> 'checkbox',
+					'class' 		=> 'action_select',
+					'value' 		=> $value->ID,
+			));
+			?>		</td>
 					<td><?php echo $value->username; ?></td>
 					<td class="center"><?php echo date("Y/d/m"); ?></td>
 					<td class="center"><?php echo $this->obj->user->get_the_user_meta($value->ID, 'capabilities', true); ?></td>
@@ -320,6 +328,25 @@ echo $this->obj->pagination->create_links();
 		ob_start();
 		?>
 
+		<?php echo form_open($this->form_action_controller(), array(
+			'method' => 'get'
+		));
+		if (isset($_GET['orderby'])) {
+			echo form_input(array(
+				'name' 			=> 'orderby',
+				'type' 			=> 'hidden',
+				'value' 		=> (isset($_GET['orderby'])) ? $_GET['orderby'] : null ,
+			));
+		}
+		if (isset($_GET['order'])) {
+			echo form_input(array(
+				'name' 			=> 'order',
+				'type' 			=> 'hidden',
+				'value' 		=> (isset($_GET['order'])) ? $_GET['order'] : null ,
+			));
+		}
+
+		?>
 
         <label style="text-align: right;">Search By Username:
 			<?php
@@ -334,42 +361,142 @@ echo $this->obj->pagination->create_links();
         </label>
         <?php echo form_error('search', '<div class="input-large span10 as_error" style="margin:0;">', '</div>'); ?>
 
+		<?php echo form_close(); ?>
 		<?php
 		return ob_get_clean();
 	}
 
 	public function bulk_action_setup($value='')
 	{
-		echo $this->obj->input->get('bulk_action');
+		if (user_can(get_current_user_id(), 'manage_options')) {
+			$deleteble_id = false;
+			$bulk_action = $this->obj->input->post('bulk_action');
+			if ($bulk_action == 'delete') {
+				if ($this->obj->input->post('action_select')) {
+					$action_select = $this->obj->input->post('action_select');
+					if (is_array($action_select)) {
+						foreach ($action_select as $key => $value) {
+							if (is_numeric($value)) {
+								$user_id = $value;
+								$user_id = (int)$user_id;
+								$user_data = $this->obj->user->get_user($user_id);
+								if ($user_data) {
+									$deleteble_id[] 		= $user_id;
+									$deleteble_username[] 	= $user_data->username;
+								}
+							}
+						}
+					}
+				}			
+			}
+
+			if ($deleteble_id) {
+				$this->obj->session->set_userdata('set_data_for_delete', $deleteble_id);
+				set_error_message('session_error_msg', $deleteble_username);
+			}	
+		}	
 	}
+
+
+	public function confirm_delete(){
+		if (user_can(get_current_user_id(), 'manage_options')) {
+			$confirmetion = $this->obj->input->post('confirmetion');
+
+			if($confirmetion == 'Confirm'){
+				//remove from database
+				$set_data_for_delete = get_error_message('set_data_for_delete');
+				if ($set_data_for_delete) {
+					if (is_array($set_data_for_delete)) {
+						foreach ($set_data_for_delete as $key => $value) {
+							if (is_numeric($value)) {
+								if ($this->obj->user->get_user($value)) {
+									$this->obj->user->delete_user($value);
+								}								
+							}
+						}	
+					}					
+				}
+				delete_error_msg('set_data_for_delete');
+				delete_error_msg('session_error_msg');
+				set_error_message('delete_confirm_msg', 'Deleted successfully..');
+				redirect(base_url('dashboard/all-user'));
+				exit();
+			}else if($confirmetion == 'Cancel'){				
+				delete_error_msg('set_data_for_delete');
+				delete_error_msg('session_error_msg');				
+				redirect(base_url('dashboard/all-user'));
+				exit();
+			}
+		}
+
+	}
+
+
+	public function show_confirmation_msg(){
+		$set_data_for_delete = get_error_message('session_error_msg');
+		if ($set_data_for_delete) {
+			echo form_open($this->form_action_controller(), array(
+				'method' => 'post',
+				'id' 	 => 'main_form_for_table_action',
+				'style' =>  'overflow: hidden;margin-bottom: 15px;',
+			));
+
+				if (is_array($set_data_for_delete)) {
+					foreach ($set_data_for_delete as $key => $value) {
+						?>
+
+						<div class="alert alert-error">
+							<strong><?php echo $value; ?>!</strong> Want to delete??
+						</div> 
+
+						<?php
+					}
+				}
+
+
+			echo form_input(array(
+				'name' 			=> 'confirmetion',
+				'type' 			=> 'submit',
+				'value' 		=>  'Confirm',
+				'class' 		=>  'btn pull-right btn-warning',
+				'style' 		=>  'margin-left:15px;',
+			));
+			echo form_input(array(
+				'name' 			=>  'confirmetion',
+				'type' 			=>  'submit',
+				'value' 		=>  'Cancel',
+				'class' 		=>  'btn btn-info pull-right',
+			));
+			echo form_close();
+		}
+
+		$delete_confirm_msg = get_error_message('delete_confirm_msg');
+		if ($delete_confirm_msg) {
+			?>
+
+			<div class="alert alert-success">
+				<button type="button" class="close" data-dismiss="alert">×</button>
+				<strong>Well done!</strong> <?php echo $delete_confirm_msg; ?>
+			</div>
+
+			<?php
+			delete_error_msg('delete_confirm_msg');
+		}
+
+
+	} 
+
 
 	public function get_main_table(){
 		$item_loop = $this->items_loop();
 
-$this->bulk_action_setup();
-
-		?>
-<?php echo form_open($this->form_action_controller(), array(
-	'method' => 'get'
-));
-if (isset($_GET['orderby'])) {
-	echo form_input(array(
-		'name' 			=> 'orderby',
-		'type' 			=> 'hidden',
-		'value' 		=> (isset($_GET['orderby'])) ? $_GET['orderby'] : null ,
-	));
-}
-if (isset($_GET['order'])) {
-	echo form_input(array(
-		'name' 			=> 'order',
-		'type' 			=> 'hidden',
-		'value' 		=> (isset($_GET['order'])) ? $_GET['order'] : null ,
-	));
-}
-
-
-
+		$this->confirm_delete();
+		$this->bulk_action_setup();
+		$this->show_confirmation_msg();
 ?>
+
+
+
 <!--table start-->
 <div class="row-fluid">		
 	<div class="box span12">
@@ -397,11 +524,11 @@ if (isset($_GET['order'])) {
 				<li>
 				<div class="control-group">
 					<div class="controls">
-					  <select id="selectError3" name="bulk_action">
+					  <select id="bulk_action_select">
 					  <?php
 
 					  if (is_array($item_actions)) {
-					  	$bulk_action_data = $this->obj->input->get('bulk_action');
+					  	$bulk_action_data = $this->obj->input->post('bulk_action');
 					  	foreach ($item_actions['options'] as $key => $value) {
 					  		if ($key == 'default') {
 					  			echo '<option value="" >'.$value.'</option>';
@@ -418,7 +545,7 @@ if (isset($_GET['order'])) {
 					</div>
 				</li>
 				<li>	
-					<label class="control-label" for="selectError3"><button class="btn"><?php echo $item_actions['button_title']; ?></button></label>
+					<label class="control-label" for="selectError3"><button class="btn"  id="bulk_action_button" ><?php echo $item_actions['button_title']; ?></button></label>
 				</li>
 			</ul>
 		</div>
@@ -463,7 +590,7 @@ if (isset($_GET['order'])) {
 			  <thead>
 				  <tr>
 
-					  <th><input type="checkbox" value=""></th>
+					  <th><input type="checkbox" value=""  onclick="chack_all_ckacl_box('action_select', this)" ></th>
 				  <?php
 
 				  $header_items = $this->table_header_items();
@@ -484,7 +611,18 @@ if (isset($_GET['order'])) {
 			  </thead>   
 			  <tbody>	
 
+<?php echo form_open($this->form_action_controller(), array(
+			'method' => 'post',
+			'id' 	 => 'main_form_for_table_action',
+		)); 
+		echo form_input(array(
+			'name' 			=> 'bulk_action',
+			'type' 			=> 'hidden',
+			'value' 		=>  set_value('bulk_action'),
+		));
 
+
+		?>
 <?php
 		if ($item_loop) {
 			foreach ($item_loop as $key => $value) {
@@ -493,7 +631,7 @@ if (isset($_GET['order'])) {
 		}
 
 ?>
-
+<?php echo form_close(); ?>
 			  </tbody>
 		  </table>
 		</div>
@@ -507,7 +645,6 @@ if (isset($_GET['order'])) {
     </div>
 </div>
 <!--table end-->
-<?php echo form_close(); ?>
 		<?php
 	}
 

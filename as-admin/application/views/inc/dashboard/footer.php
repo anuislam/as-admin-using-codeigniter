@@ -29,7 +29,7 @@
 $data = array();
 
 $data[] = array(
-			'src' => base_url('libs/js/jquery-1.9.1.min.js')
+			'src' => base_url('libs/js/jquery-1.12.4.min.js')
 		);
 $data[] = array(
 			'src' => base_url('libs/js/jquery-migrate-1.0.0.min.js')
@@ -72,9 +72,6 @@ $data[] = array(
 		);
 $data[] = array(
 			'src' => base_url('libs/js/jquery.chosen.min.js')
-		);
-$data[] = array(
-			'src' => base_url('libs/js/jquery.uniform.min.js')
 		);
 $data[] = array(
 			'src' => base_url('libs/js/jquery.cleditor.min.js')
